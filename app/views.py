@@ -6,7 +6,7 @@ from werkzeug.utils import secure_filename
 from app.models import UserProfile
 from app.forms import LoginForm
 from werkzeug.security import check_password_hash, generate_password_hash
-
+from .forms import UploadForm
 
 ###
 # Routing for your application.
@@ -18,22 +18,30 @@ def home():
     return render_template('home.html')
 
 
-@app.route('/about/')
+@app.route('/about/', methods=['GET','POST'])
 def about():
     """Render the website's about page."""
     return render_template('about.html', name="Mary Jane")
 
 
 @app.route('/upload', methods=['POST', 'GET'])
+@login_required
 def upload():
     # Instantiate your form class
+    form = UploadForm()
 
-    # Validate file upload on submit
-    if form.validate_on_submit():
-        # Get file data and save to your uploads folder
-
-        flash('File Saved', 'success')
-        return redirect(url_for('home')) # Update this to redirect the user to a route that displays all uploaded image files
+    if request.method=='GET':
+         return render_template('upload.html', form=form)
+    elif request.method=='POST':
+         # Validate file upload on submit
+         if form.validate_on_submit():
+             # Get file data and save to your uploads folder
+             image_file = form.image.data
+             filename = secure_filename(image_file.filename)
+             image_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+             image_file.save(image_path)
+             flash('File Saved', 'success')
+             return redirect(url_for('home')) # Update this to redirect the user to a route that displays all uploaded image files
 
     return render_template('upload.html')
 
@@ -46,19 +54,21 @@ def login():
     # and not just one field
     if form.validate_on_submit():
          # Get the username and password values from the form.
-         formUsername = form.Username
-         formPassword = form.password
+         res = request.form
+         formUsername = res['username']
+         formPassword = res['password']
         # Using your model, query database for a user based on the username
         # and password submitted. Remember you need to compare the password hash.
         # You will need to import the appropriate function to do so.
         # Then store the result of that query to a `user` variable so it can be
         # passed to the login_user() method below.
 
-    userQuery = session.query(UserProfiles).filter_by(username=formUsername, password=formPassword).scalars()
-    user = userQuery[0]
-    if check_password_hash(user_profile.password, user.password):
+         #user =  db.session.execute(db.select(UserProfile).filter_by(username = formUsername)).scalars()
+         user =  UserProfile.query.filter_by(username = formUsername)
+         # user = userQuery[0]
+         if check_password_hash(user[0].password, formPassword):
              # Gets user id, load into session
-             login_user(user)
+             login_user(user[0])
              # Remember to flash a message to the user
              flash("Successful login")
              return redirect(url_for("upload"))  # The user should be redirected to the upload form instead
